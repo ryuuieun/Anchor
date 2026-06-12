@@ -186,7 +186,7 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
                 self.isMenuStatusRefreshScheduled = false
                 self.slotStore.applyStatusRefreshResults(results)
                 menuLogger.debug("Menu status refresh completed")
-                self.rebuildMenu()
+                self.requestMenuRebuild()
                 #if DEBUG
                 self.onMenuStatusRefreshAppliedForTesting?()
                 #endif
