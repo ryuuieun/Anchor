@@ -6,6 +6,7 @@ private let settingsLogger = AnchorLog.settings
 struct SettingsView: View {
     @ObservedObject var permissionService: AccessibilityPermissionService
     @ObservedObject var hotKeyManager: HotKeyManager
+    @ObservedObject var optionDoubleTapSettingsStore: OptionDoubleTapSettingsStore
 
     var body: some View {
         Form {
@@ -29,6 +30,21 @@ struct SettingsView: View {
 
                 Text(hotKeyManager.statusMessage)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("Binding Menu") {
+                Toggle(
+                    "Double-tap Option",
+                    isOn: Binding(
+                        get: {
+                            optionDoubleTapSettingsStore.isEnabled
+                        },
+                        set: { isEnabled in
+                            settingsLogger.info("Settings action: update Option double-tap binding to enabled=\(isEnabled)")
+                            optionDoubleTapSettingsStore.setEnabled(isEnabled)
+                        }
+                    )
+                )
             }
         }
         .formStyle(.grouped)
