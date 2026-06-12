@@ -9,8 +9,11 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
     private let menuItemTitleMaxWidth: CGFloat = 210
 
     private let permissionService: AccessibilityPermissionService
+    private let windowService: WindowServiceProtocol
     private let slotStore: WindowSlotStore
     private let hotKeyManager: HotKeyManager
+    private let slotBindingPopupPresenter: SlotBindingPopupPresenting
+    private let modifierDoubleTapMonitor: ModifierDoubleTapMonitoring
 
     private let statusItem: NSStatusItem
     private let menu = NSMenu()
@@ -25,23 +28,31 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
 
     init(
         permissionService: AccessibilityPermissionService,
+        windowService: WindowServiceProtocol,
         slotStore: WindowSlotStore,
-        hotKeyManager: HotKeyManager
+        hotKeyManager: HotKeyManager,
+        slotBindingPopupPresenter: SlotBindingPopupPresenting? = nil,
+        modifierDoubleTapMonitor: ModifierDoubleTapMonitoring = ModifierDoubleTapMonitor()
     ) {
         self.permissionService = permissionService
+        self.windowService = windowService
         self.slotStore = slotStore
         self.hotKeyManager = hotKeyManager
+        self.slotBindingPopupPresenter = slotBindingPopupPresenter ?? SlotBindingPopupController(slotStore: slotStore)
+        self.modifierDoubleTapMonitor = modifierDoubleTapMonitor
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
         configureStatusItem()
         rebuildMenu()
         observeStateChanges()
+        configureOptionDoubleTapBinding()
         menuLogger.info("Status item controller initialized")
     }
 
     deinit {
         menuLogger.info("Removing status item")
+        modifierDoubleTapMonitor.stop()
         NSStatusBar.system.removeStatusItem(statusItem)
     }
 
@@ -73,6 +84,38 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
             self?.requestMenuRebuild()
         }
         .store(in: &cancellables)
+
+        permissionService.$isTrusted
+            .dropFirst()
+            .filter { $0 }
+            .sink { [weak self] _ in
+                self?.startOptionDoubleTapMonitor()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func configureOptionDoubleTapBinding() {
+        modifierDoubleTapMonitor.onDoubleTap = { [weak self] in
+            guard let self else {
+                return
+            }
+
+            if Thread.isMainThread {
+                self.showSlotBindingPopupFromDoubleTap()
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    self?.showSlotBindingPopupFromDoubleTap()
+                }
+            }
+        }
+
+        startOptionDoubleTapMonitor()
+    }
+
+    private func startOptionDoubleTapMonitor() {
+        if !modifierDoubleTapMonitor.start() {
+            menuLogger.error("Option double-tap monitor did not start")
+        }
     }
 
     private func requestMenuRebuild() {
@@ -235,6 +278,20 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
         menuLogger.info("Menu action: bind focused window to slot \(sender.tag)")
         slotStore.bindFocusedWindow(to: sender.tag)
         requestMenuRebuild()
+    }
+
+    private func showSlotBindingPopupFromDoubleTap() {
+        menuLogger.info("Option double-tap requested slot binding popup")
+        permissionService.refresh()
+
+        switch windowService.captureFocusedWindow() {
+        case .success(let window):
+            slotBindingPopupPresenter.show(for: window, slots: slotStore.slots)
+
+        case .failure(let reason):
+            slotStore.reportBindingCaptureFailure(reason)
+            menuLogger.error("Option double-tap capture failed: \(reason, privacy: .public)")
+        }
     }
 
     @objc private func clearSlot(_ sender: NSMenuItem) {
