@@ -28,6 +28,7 @@ struct AnchorApp: App {
         )
         let statusItemController = StatusItemController(
             permissionService: permissionService,
+            windowService: windowService,
             slotStore: slotStore,
             hotKeyManager: hotKeyManager
         )

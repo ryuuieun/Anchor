@@ -5,9 +5,10 @@ import XCTest
 final class StatusItemControllerTests: XCTestCase {
     @MainActor
     func testMenuWillOpenDoesNotRebuildVisibleMenuWhenStateIsUnchanged() {
+        let windowService = StatusMenuMockWindowService()
         let slotStore = WindowSlotStore(
             slotIDs: [1],
-            windowService: StatusMenuMockWindowService(),
+            windowService: windowService,
             focusService: StatusMenuMockWindowFocusService(),
             lifecycleObserver: StatusMenuMockWindowLifecycleObserver()
         )
@@ -17,8 +18,11 @@ final class StatusItemControllerTests: XCTestCase {
         )
         let controller = StatusItemController(
             permissionService: AccessibilityPermissionService(),
+            windowService: windowService,
             slotStore: slotStore,
-            hotKeyManager: hotKeyManager
+            hotKeyManager: hotKeyManager,
+            slotBindingPopupPresenter: StatusMenuMockSlotBindingPopupPresenter(),
+            modifierDoubleTapMonitor: StatusMenuMockModifierDoubleTapMonitor()
         )
         let initialItems = controller.menuForTesting.items.map(ObjectIdentifier.init)
 
@@ -48,8 +52,11 @@ final class StatusItemControllerTests: XCTestCase {
         )
         let controller = StatusItemController(
             permissionService: AccessibilityPermissionService(),
+            windowService: windowService,
             slotStore: slotStore,
-            hotKeyManager: hotKeyManager
+            hotKeyManager: hotKeyManager,
+            slotBindingPopupPresenter: StatusMenuMockSlotBindingPopupPresenter(),
+            modifierDoubleTapMonitor: StatusMenuMockModifierDoubleTapMonitor()
         )
 
         XCTAssertTrue(controller.menuTitlesForTesting.contains { $0.contains("Slot 1:") })
@@ -76,6 +83,76 @@ final class StatusItemControllerTests: XCTestCase {
         controller.menuDidClose(controller.menuForTesting)
 
         XCTAssertFalse(controller.menuTitlesForTesting.contains { $0.contains("Slot 1:") })
+    }
+
+    @MainActor
+    func testOptionDoubleTapCapturesFocusedWindowAndShowsBindingPopupWithoutBinding() {
+        let windowService = StatusMenuMockWindowService()
+        let slotStore = WindowSlotStore(
+            slotIDs: [1, 2],
+            windowService: windowService,
+            focusService: StatusMenuMockWindowFocusService(),
+            lifecycleObserver: StatusMenuMockWindowLifecycleObserver()
+        )
+        let hotKeyManager = HotKeyManager(
+            slotIDs: [1, 2],
+            registrar: StatusMenuMockHotKeyRegistrar()
+        )
+        let popupPresenter = StatusMenuMockSlotBindingPopupPresenter()
+        let doubleTapMonitor = StatusMenuMockModifierDoubleTapMonitor()
+        let window = makeStatusMenuWindow()
+        windowService.captureResults = [.success(window)]
+
+        let controller = StatusItemController(
+            permissionService: AccessibilityPermissionService(),
+            windowService: windowService,
+            slotStore: slotStore,
+            hotKeyManager: hotKeyManager,
+            slotBindingPopupPresenter: popupPresenter,
+            modifierDoubleTapMonitor: doubleTapMonitor
+        )
+
+        doubleTapMonitor.trigger()
+
+        XCTAssertEqual(popupPresenter.presentations.count, 1)
+        XCTAssertTrue(popupPresenter.presentations.first?.window === window)
+        XCTAssertEqual(popupPresenter.presentations.first?.slots.map(\.id), [1, 2])
+        XCTAssertTrue(slotStore.slots.allSatisfy { $0.window == nil })
+        XCTAssertTrue(doubleTapMonitor.didStart)
+        withExtendedLifetime(controller) {}
+    }
+
+    @MainActor
+    func testOptionDoubleTapDoesNotShowPopupWhenCaptureFails() {
+        let windowService = StatusMenuMockWindowService()
+        let slotStore = WindowSlotStore(
+            slotIDs: [1],
+            windowService: windowService,
+            focusService: StatusMenuMockWindowFocusService(),
+            lifecycleObserver: StatusMenuMockWindowLifecycleObserver()
+        )
+        let hotKeyManager = HotKeyManager(
+            slotIDs: [1],
+            registrar: StatusMenuMockHotKeyRegistrar()
+        )
+        let popupPresenter = StatusMenuMockSlotBindingPopupPresenter()
+        let doubleTapMonitor = StatusMenuMockModifierDoubleTapMonitor()
+        windowService.captureResults = [.failure("no focused window")]
+
+        let controller = StatusItemController(
+            permissionService: AccessibilityPermissionService(),
+            windowService: windowService,
+            slotStore: slotStore,
+            hotKeyManager: hotKeyManager,
+            slotBindingPopupPresenter: popupPresenter,
+            modifierDoubleTapMonitor: doubleTapMonitor
+        )
+
+        doubleTapMonitor.trigger()
+
+        XCTAssertTrue(popupPresenter.presentations.isEmpty)
+        XCTAssertEqual(slotStore.lastMessage, "Could not capture window for binding: no focused window")
+        withExtendedLifetime(controller) {}
     }
 }
 
@@ -134,6 +211,39 @@ private final class StatusMenuMockHotKeyRegistrar: HotKeyRegistrar {
     func register(_ definitions: [HotKeyDefinition], handler: @escaping (HotKeyIntent) -> Void) throws {}
 
     func unregisterAll() {}
+}
+
+private final class StatusMenuMockSlotBindingPopupPresenter: SlotBindingPopupPresenting {
+    struct Presentation {
+        let window: WindowReference
+        let slots: [WindowSlot]
+    }
+
+    private(set) var presentations: [Presentation] = []
+
+    func show(for window: WindowReference, slots: [WindowSlot]) {
+        presentations.append(Presentation(window: window, slots: slots))
+    }
+}
+
+private final class StatusMenuMockModifierDoubleTapMonitor: ModifierDoubleTapMonitoring {
+    var onDoubleTap: (() -> Void)?
+    private(set) var didStart = false
+    private(set) var didStop = false
+
+    @discardableResult
+    func start() -> Bool {
+        didStart = true
+        return true
+    }
+
+    func stop() {
+        didStop = true
+    }
+
+    func trigger() {
+        onDoubleTap?()
+    }
 }
 
 private final class StatusMenuTestWindowHandle: WindowElementHandle {

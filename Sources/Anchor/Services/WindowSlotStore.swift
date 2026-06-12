@@ -72,6 +72,11 @@ final class WindowSlotStore: ObservableObject {
         slotLogger.info("Bound slot \(slotID) to \(window.summary, privacy: .public) pid \(window.pid)")
     }
 
+    func reportBindingCaptureFailure(_ reason: String) {
+        lastMessage = "Could not capture window for binding: \(reason)"
+        slotLogger.error("Bind capture failed: \(reason, privacy: .public)")
+    }
+
     func activate(slotID: Int) {
         slotLogger.info("Activate requested for slot \(slotID)")
         guard let index = slots.firstIndex(where: { $0.id == slotID }) else {
