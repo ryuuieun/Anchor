@@ -5,7 +5,7 @@ import XCTest
 final class MenuTitleTruncationTests: XCTestCase {
     func testLongMenuTitleIsTruncatedToRequestedRenderedWidth() {
         let font = NSFont.menuFont(ofSize: 0)
-        let title = "Slot 3: Obsidian - ITC_Study_Table_of_Contents - CS - Obsidian 1.12.7 (Active)"
+        let title = "Slot 3: Obsidian - ITC_Study_Table_of_Contents - CS - Obsidian 1.12.7 (Bound)"
         let maxWidth: CGFloat = 210
 
         let truncated = title.truncatedForMenu(maxWidth: maxWidth, font: font)
@@ -17,7 +17,7 @@ final class MenuTitleTruncationTests: XCTestCase {
 
     func testShortMenuTitleIsPreserved() {
         let font = NSFont.menuFont(ofSize: 0)
-        let title = "Slot 1: Codex - Codex (Active)"
+        let title = "Slot 1: Codex - Codex (Bound)"
 
         XCTAssertEqual(title.truncatedForMenu(maxWidth: 210, font: font), title)
     }

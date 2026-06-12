@@ -12,7 +12,7 @@ final class WindowSlotMenuTitleTests: XCTestCase {
         let slot = WindowSlot(
             id: 3,
             window: makeWindow(appName: "Obsidian", title: "ITC_Study_Table_of_Contents"),
-            status: .active
+            status: .bound
         )
 
         XCTAssertEqual(slot.bindMenuTitle, "Slot 3 - Obsidian - ITC_Study_Table_of_Contents")
@@ -21,10 +21,10 @@ final class WindowSlotMenuTitleTests: XCTestCase {
     func testBindableSlotsOnlyIncludesEmptySlotsInSlotOrder() {
         let slots = [
             WindowSlot(id: 3),
-            WindowSlot(id: 1, window: makeWindow(appName: "Codex", title: "Codex"), status: .active),
+            WindowSlot(id: 1, window: makeWindow(appName: "Codex", title: "Codex"), status: .bound),
             WindowSlot(id: 0),
             WindowSlot(id: 2),
-            WindowSlot(id: 9, window: makeWindow(appName: "Firefox", title: "ChatGPT"), status: .active)
+            WindowSlot(id: 9, window: makeWindow(appName: "Firefox", title: "ChatGPT"), status: .bound)
         ]
 
         XCTAssertEqual(WindowSlotMenuModel.bindableSlots(from: slots).map(\.id), [2, 3, 0])

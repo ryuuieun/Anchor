@@ -92,7 +92,7 @@ final class WindowReference {
 
 enum WindowSlotStatus: Equatable {
     case empty
-    case active
+    case bound
     case switching
     case unavailable(String)
     case accessibilityUnavailable(String)
@@ -102,8 +102,8 @@ enum WindowSlotStatus: Equatable {
         switch self {
         case .empty:
             return "Empty"
-        case .active:
-            return "Active"
+        case .bound:
+            return "Bound"
         case .switching:
             return "Switching"
         case .unavailable(let message):

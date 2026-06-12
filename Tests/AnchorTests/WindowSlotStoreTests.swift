@@ -36,7 +36,7 @@ final class WindowSlotStoreTests: XCTestCase {
         environment.store.bindFocusedWindow(to: 9)
 
         XCTAssertTrue(environment.store.slot(1).window === window)
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
         XCTAssertEqual(environment.store.lastMessage, "Unknown slot 9")
         XCTAssertTrue(environment.lifecycleObserver.watchedSlots[1] === window)
         XCTAssertTrue(environment.lifecycleObserver.unwatchedSlots.isEmpty)
@@ -54,7 +54,7 @@ final class WindowSlotStoreTests: XCTestCase {
         XCTAssertNil(environment.store.slot(1).window)
         XCTAssertTrue(environment.store.slot(2).window === window)
         XCTAssertEqual(environment.store.slot(1).status, .empty)
-        XCTAssertEqual(environment.store.slot(2).status, .active)
+        XCTAssertEqual(environment.store.slot(2).status, .bound)
         XCTAssertEqual(environment.lifecycleObserver.unwatchedSlots, [1])
         XCTAssertTrue(environment.lifecycleObserver.watchedSlots[2] === window)
     }
@@ -101,7 +101,7 @@ final class WindowSlotStoreTests: XCTestCase {
         environment.store.activate(slotID: 1)
 
         XCTAssertTrue(environment.focusService.focusedWindows.isEmpty)
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
         XCTAssertEqual(environment.store.lastMessage, "Slot 1: Focused window")
         XCTAssertTrue(environment.windowService.refreshedWindows.isEmpty)
     }
@@ -116,7 +116,7 @@ final class WindowSlotStoreTests: XCTestCase {
 
         XCTAssertEqual(environment.focusService.focusedWindows.count, 1)
         XCTAssertTrue(environment.focusService.focusedWindows.first === window)
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
     }
 
     func testUpdatedFingerprintValidationRewatchesWindowLifecycle() {
@@ -154,7 +154,7 @@ final class WindowSlotStoreTests: XCTestCase {
 
         XCTAssertEqual(environment.focusService.focusedWindows.count, 1)
         XCTAssertTrue(environment.focusService.focusedWindows.first === window)
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
         XCTAssertEqual(environment.store.lastMessage, "Slot 1: Focused window")
         XCTAssertEqual(environment.windowService.refreshedWindows.count, 1)
         XCTAssertTrue(environment.windowService.refreshedWindows.first === window)
@@ -183,7 +183,7 @@ final class WindowSlotStoreTests: XCTestCase {
 
         environment.focusService.completeNextFocus()
         XCTAssertEqual(environment.focusService.pendingFocusCompletionCount, 0)
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
     }
 
     func testOlderFocusCompletionCannotOverwriteNewerResultForSameWindow() {
@@ -198,11 +198,11 @@ final class WindowSlotStoreTests: XCTestCase {
         XCTAssertEqual(environment.focusService.pendingFocusCompletionCount, 2)
 
         environment.focusService.completeFocus(at: 1, with: .focused)
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
 
         environment.focusService.completeFocus(at: 0, with: .failed("old focus failed"))
 
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
         XCTAssertEqual(environment.store.lastMessage, "Slot 1: Focused window")
     }
 
@@ -251,7 +251,7 @@ final class WindowSlotStoreTests: XCTestCase {
 
         XCTAssertEqual(environment.focusService.focusedWindows.count, 3)
         XCTAssertTrue(environment.focusService.focusedWindows.allSatisfy { $0 === window })
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
     }
 
     func testRepeatedActivationDoesNotBlockOtherSlots() {
@@ -334,7 +334,7 @@ final class WindowSlotStoreTests: XCTestCase {
         environment.focusService.completeNextFocus()
 
         XCTAssertTrue(environment.store.slot(1).window === newWindow)
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
         XCTAssertEqual(environment.focusService.pendingFocusCompletionCount, 0)
     }
 
@@ -384,7 +384,7 @@ final class WindowSlotStoreTests: XCTestCase {
         XCTAssertTrue(environment.lifecycleObserver.unwatchedSlots.isEmpty)
     }
 
-    func testUnavailableSlotBecomesActiveAgainOnRefreshWhenValidationRecovers() {
+    func testUnavailableSlotBecomesBoundAgainOnRefreshWhenValidationRecovers() {
         let environment = TestEnvironment(slotIDs: [1])
         let window = bind(window: makeWindow(), to: 1, in: environment)
         environment.windowService.validationResults[ObjectIdentifier(window)] = .temporarilyUnavailable("AX cannot complete")
@@ -395,10 +395,10 @@ final class WindowSlotStoreTests: XCTestCase {
         environment.windowService.validationResults[ObjectIdentifier(window)] = .valid
         environment.store.refreshStatuses()
 
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
     }
 
-    func testAccessibilityUnavailableSlotBecomesActiveAgainOnRefreshWhenValidationRecovers() {
+    func testAccessibilityUnavailableSlotBecomesBoundAgainOnRefreshWhenValidationRecovers() {
         let environment = TestEnvironment(slotIDs: [1])
         let window = bind(window: makeWindow(), to: 1, in: environment)
         environment.windowService.validationResults[ObjectIdentifier(window)] = .accessibilityUnavailable(
@@ -413,7 +413,7 @@ final class WindowSlotStoreTests: XCTestCase {
         environment.windowService.validationResults[ObjectIdentifier(window)] = .valid
         environment.store.refreshStatuses()
 
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
     }
 
     func testRefreshStatusesRewatchesLifecycleWhenFingerprintUpdates() {
@@ -426,7 +426,7 @@ final class WindowSlotStoreTests: XCTestCase {
         XCTAssertEqual(environment.lifecycleObserver.unwatchedSlots, [1])
         XCTAssertEqual(environment.lifecycleObserver.watchEvents, [1, 1])
         XCTAssertTrue(environment.lifecycleObserver.watchedSlots[1] === window)
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
     }
 
     func testRewatchFallbackKeepsUpdatedWindowBound() {
@@ -438,7 +438,7 @@ final class WindowSlotStoreTests: XCTestCase {
         environment.store.refreshStatuses()
 
         XCTAssertTrue(environment.store.slot(1).window === window)
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
         XCTAssertEqual(
             environment.store.lastMessage,
             "Slot 1: close listener unavailable after window refresh: AXObserverCreate failure"
@@ -465,7 +465,7 @@ final class WindowSlotStoreTests: XCTestCase {
         environment.lifecycleObserver.invalidate(otherWindow, reason: "window closed")
 
         XCTAssertTrue(environment.store.slot(1).window === window)
-        XCTAssertEqual(environment.store.slot(1).status, .active)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
         XCTAssertEqual(environment.store.lastMessage, "Bound slot 1 to Test App - Window")
     }
 

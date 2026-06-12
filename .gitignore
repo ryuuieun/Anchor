@@ -2,3 +2,7 @@
 .build/
 DerivedData/
 dist/
+logs/
+*.log
+*.crash
+*.ips

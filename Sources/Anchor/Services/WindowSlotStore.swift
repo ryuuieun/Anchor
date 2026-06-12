@@ -48,7 +48,7 @@ final class WindowSlotStore: ObservableObject {
             invalidateActivation(for: slotID)
             lifecycleObserver.unwatchSlot(slotID)
             slots[index].window = window
-            slots[index].status = .active
+            slots[index].status = .bound
             switch lifecycleObserver.watch(window, slotID: slotID) {
             case .observing:
                 lastMessage = "Bound slot \(slotID) to \(window.summary)"
@@ -100,7 +100,7 @@ final class WindowSlotStore: ObservableObject {
 
         if windowService.focusedWindowMatches(window) {
             slotLogger.info("Slot \(slotID) already focused; no window action needed")
-            slots[index].status = .active
+            slots[index].status = .bound
             lastMessage = "Slot \(slotID): \(WindowActionResult.focused.statusMessage)"
             slotLogger.info("Slot \(slotID) result: \(WindowActionResult.focused.statusMessage, privacy: .public)")
         } else {
@@ -136,7 +136,7 @@ final class WindowSlotStore: ObservableObject {
         switch result {
         case .focused:
             windowService.refreshFingerprint(for: window)
-            slots[index].status = .active
+            slots[index].status = .bound
         case .unsupported(let reason), .failed(let reason), .focusVerificationFailed(let reason):
             slots[index].status = .actionFailed(reason)
         }
@@ -213,14 +213,14 @@ final class WindowSlotStore: ObservableObject {
     ) {
         switch validationResult {
         case .valid:
-            if slots[index].status.canRecoverToActiveOnValidationSuccess {
-                slots[index].status = .active
+            if slots[index].status.canRecoverToBoundOnValidationSuccess {
+                slots[index].status = .bound
             }
             slotLogger.debug("Slot \(self.slots[index].id) validation valid")
         case .updatedFingerprint:
             rewatchWindow(window, slotID: slots[index].id)
-            if slots[index].status.canRecoverToActiveOnValidationSuccess {
-                slots[index].status = .active
+            if slots[index].status.canRecoverToBoundOnValidationSuccess {
+                slots[index].status = .bound
             }
             slotLogger.info("Slot \(self.slots[index].id) validation updated fingerprint")
         case .temporarilyUnavailable(let reason):
@@ -316,11 +316,11 @@ struct WindowStatusRefreshResult {
 }
 
 private extension WindowSlotStatus {
-    var canRecoverToActiveOnValidationSuccess: Bool {
+    var canRecoverToBoundOnValidationSuccess: Bool {
         switch self {
         case .unavailable, .accessibilityUnavailable:
             return true
-        case .empty, .active, .switching, .actionFailed:
+        case .empty, .bound, .switching, .actionFailed:
             return false
         }
     }
