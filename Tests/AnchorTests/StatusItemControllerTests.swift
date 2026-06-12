@@ -4,6 +4,30 @@ import XCTest
 
 final class StatusItemControllerTests: XCTestCase {
     @MainActor
+    func testMenuWillOpenDoesNotRebuildVisibleMenuWhenStateIsUnchanged() {
+        let slotStore = WindowSlotStore(
+            slotIDs: [1],
+            windowService: StatusMenuMockWindowService(),
+            focusService: StatusMenuMockWindowFocusService(),
+            lifecycleObserver: StatusMenuMockWindowLifecycleObserver()
+        )
+        let hotKeyManager = HotKeyManager(
+            slotIDs: [1],
+            registrar: StatusMenuMockHotKeyRegistrar()
+        )
+        let controller = StatusItemController(
+            permissionService: AccessibilityPermissionService(),
+            slotStore: slotStore,
+            hotKeyManager: hotKeyManager
+        )
+        let initialItems = controller.menuForTesting.items.map(ObjectIdentifier.init)
+
+        controller.menuWillOpen(controller.menuForTesting)
+
+        XCTAssertEqual(controller.menuForTesting.items.map(ObjectIdentifier.init), initialItems)
+    }
+
+    @MainActor
     func testMenuOpenStatusRefreshDefersVisibleMenuRebuildUntilClose() {
         let windowService = StatusMenuMockWindowService()
         let focusService = StatusMenuMockWindowFocusService()

@@ -150,7 +150,6 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
         menuLogger.info("Menu will open")
         menuRebuildGate.menuWillOpen()
         permissionService.refresh()
-        rebuildMenu()
         scheduleMenuStatusRefresh()
     }
 
