@@ -21,6 +21,7 @@ final class StatusItemControllerTests: XCTestCase {
             windowService: windowService,
             slotStore: slotStore,
             hotKeyManager: hotKeyManager,
+            optionDoubleTapSettingsStore: OptionDoubleTapSettingsStore(userDefaults: makeUserDefaults()),
             slotBindingPopupPresenter: StatusMenuMockSlotBindingPopupPresenter(),
             modifierDoubleTapMonitor: StatusMenuMockModifierDoubleTapMonitor()
         )
@@ -55,6 +56,7 @@ final class StatusItemControllerTests: XCTestCase {
             windowService: windowService,
             slotStore: slotStore,
             hotKeyManager: hotKeyManager,
+            optionDoubleTapSettingsStore: OptionDoubleTapSettingsStore(userDefaults: makeUserDefaults()),
             slotBindingPopupPresenter: StatusMenuMockSlotBindingPopupPresenter(),
             modifierDoubleTapMonitor: StatusMenuMockModifierDoubleTapMonitor()
         )
@@ -108,6 +110,7 @@ final class StatusItemControllerTests: XCTestCase {
             windowService: windowService,
             slotStore: slotStore,
             hotKeyManager: hotKeyManager,
+            optionDoubleTapSettingsStore: OptionDoubleTapSettingsStore(userDefaults: makeUserDefaults()),
             slotBindingPopupPresenter: popupPresenter,
             modifierDoubleTapMonitor: doubleTapMonitor
         )
@@ -144,6 +147,7 @@ final class StatusItemControllerTests: XCTestCase {
             windowService: windowService,
             slotStore: slotStore,
             hotKeyManager: hotKeyManager,
+            optionDoubleTapSettingsStore: OptionDoubleTapSettingsStore(userDefaults: makeUserDefaults()),
             slotBindingPopupPresenter: popupPresenter,
             modifierDoubleTapMonitor: doubleTapMonitor
         )
@@ -154,11 +158,84 @@ final class StatusItemControllerTests: XCTestCase {
         XCTAssertEqual(slotStore.lastMessage, "Could not capture window for binding: no focused window")
         withExtendedLifetime(controller) {}
     }
+
+    @MainActor
+    func testDisabledOptionDoubleTapSettingStopsMonitorAndIgnoresTrigger() {
+        let windowService = StatusMenuMockWindowService()
+        let slotStore = WindowSlotStore(
+            slotIDs: [1],
+            windowService: windowService,
+            focusService: StatusMenuMockWindowFocusService(),
+            lifecycleObserver: StatusMenuMockWindowLifecycleObserver()
+        )
+        let hotKeyManager = HotKeyManager(
+            slotIDs: [1],
+            registrar: StatusMenuMockHotKeyRegistrar()
+        )
+        let popupPresenter = StatusMenuMockSlotBindingPopupPresenter()
+        let doubleTapMonitor = StatusMenuMockModifierDoubleTapMonitor()
+        let settingsStore = OptionDoubleTapSettingsStore(userDefaults: makeUserDefaults())
+        settingsStore.setEnabled(false)
+        windowService.captureResults = [.success(makeStatusMenuWindow())]
+
+        let controller = StatusItemController(
+            permissionService: AccessibilityPermissionService(),
+            windowService: windowService,
+            slotStore: slotStore,
+            hotKeyManager: hotKeyManager,
+            optionDoubleTapSettingsStore: settingsStore,
+            slotBindingPopupPresenter: popupPresenter,
+            modifierDoubleTapMonitor: doubleTapMonitor
+        )
+
+        doubleTapMonitor.trigger()
+
+        XCTAssertEqual(doubleTapMonitor.startCount, 0)
+        XCTAssertEqual(doubleTapMonitor.stopCount, 1)
+        XCTAssertEqual(windowService.captureCount, 0)
+        XCTAssertTrue(popupPresenter.presentations.isEmpty)
+        withExtendedLifetime(controller) {}
+    }
+
+    @MainActor
+    func testOptionDoubleTapSettingChangeStopsAndRestartsMonitor() {
+        let windowService = StatusMenuMockWindowService()
+        let slotStore = WindowSlotStore(
+            slotIDs: [1],
+            windowService: windowService,
+            focusService: StatusMenuMockWindowFocusService(),
+            lifecycleObserver: StatusMenuMockWindowLifecycleObserver()
+        )
+        let hotKeyManager = HotKeyManager(
+            slotIDs: [1],
+            registrar: StatusMenuMockHotKeyRegistrar()
+        )
+        let doubleTapMonitor = StatusMenuMockModifierDoubleTapMonitor()
+        let settingsStore = OptionDoubleTapSettingsStore(userDefaults: makeUserDefaults())
+
+        let controller = StatusItemController(
+            permissionService: AccessibilityPermissionService(),
+            windowService: windowService,
+            slotStore: slotStore,
+            hotKeyManager: hotKeyManager,
+            optionDoubleTapSettingsStore: settingsStore,
+            slotBindingPopupPresenter: StatusMenuMockSlotBindingPopupPresenter(),
+            modifierDoubleTapMonitor: doubleTapMonitor
+        )
+
+        settingsStore.setEnabled(false)
+        settingsStore.setEnabled(true)
+
+        XCTAssertEqual(doubleTapMonitor.startCount, 2)
+        XCTAssertEqual(doubleTapMonitor.stopCount, 1)
+        withExtendedLifetime(controller) {}
+    }
 }
 
 private final class StatusMenuMockWindowService: WindowServiceProtocol {
     var captureResults: [WindowCaptureResult] = []
     var validationResults: [ObjectIdentifier: WindowValidationResult] = [:]
+    private(set) var captureCount = 0
     private let lock = NSLock()
     private var validationThreadWasMain: Bool?
 
@@ -169,6 +246,7 @@ private final class StatusMenuMockWindowService: WindowServiceProtocol {
     }
 
     func captureFocusedWindow() -> WindowCaptureResult {
+        captureCount += 1
         guard !captureResults.isEmpty else {
             return .failure("no capture result configured")
         }
@@ -228,17 +306,25 @@ private final class StatusMenuMockSlotBindingPopupPresenter: SlotBindingPopupPre
 
 private final class StatusMenuMockModifierDoubleTapMonitor: ModifierDoubleTapMonitoring {
     var onDoubleTap: (() -> Void)?
-    private(set) var didStart = false
-    private(set) var didStop = false
+    private(set) var startCount = 0
+    private(set) var stopCount = 0
+
+    var didStart: Bool {
+        startCount > 0
+    }
+
+    var didStop: Bool {
+        stopCount > 0
+    }
 
     @discardableResult
     func start() -> Bool {
-        didStart = true
+        startCount += 1
         return true
     }
 
     func stop() {
-        didStop = true
+        stopCount += 1
     }
 
     func trigger() {

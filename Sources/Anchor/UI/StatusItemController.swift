@@ -12,6 +12,7 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
     private let windowService: WindowServiceProtocol
     private let slotStore: WindowSlotStore
     private let hotKeyManager: HotKeyManager
+    private let optionDoubleTapSettingsStore: OptionDoubleTapSettingsStore
     private let slotBindingPopupPresenter: SlotBindingPopupPresenting
     private let modifierDoubleTapMonitor: ModifierDoubleTapMonitoring
 
@@ -31,6 +32,7 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
         windowService: WindowServiceProtocol,
         slotStore: WindowSlotStore,
         hotKeyManager: HotKeyManager,
+        optionDoubleTapSettingsStore: OptionDoubleTapSettingsStore,
         slotBindingPopupPresenter: SlotBindingPopupPresenting? = nil,
         modifierDoubleTapMonitor: ModifierDoubleTapMonitoring = ModifierDoubleTapMonitor()
     ) {
@@ -38,6 +40,7 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
         self.windowService = windowService
         self.slotStore = slotStore
         self.hotKeyManager = hotKeyManager
+        self.optionDoubleTapSettingsStore = optionDoubleTapSettingsStore
         self.slotBindingPopupPresenter = slotBindingPopupPresenter ?? SlotBindingPopupController(slotStore: slotStore)
         self.modifierDoubleTapMonitor = modifierDoubleTapMonitor
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -89,7 +92,14 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
             .dropFirst()
             .filter { $0 }
             .sink { [weak self] _ in
-                self?.startOptionDoubleTapMonitor()
+                self?.applyOptionDoubleTapMonitorState()
+            }
+            .store(in: &cancellables)
+
+        optionDoubleTapSettingsStore.$isEnabled
+            .dropFirst()
+            .sink { [weak self] isEnabled in
+                self?.applyOptionDoubleTapMonitorState(isEnabled: isEnabled)
             }
             .store(in: &cancellables)
     }
@@ -109,10 +119,15 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
             }
         }
 
-        startOptionDoubleTapMonitor()
+        applyOptionDoubleTapMonitorState(isEnabled: optionDoubleTapSettingsStore.isEnabled)
     }
 
-    private func startOptionDoubleTapMonitor() {
+    private func applyOptionDoubleTapMonitorState(isEnabled: Bool? = nil) {
+        guard isEnabled ?? optionDoubleTapSettingsStore.isEnabled else {
+            modifierDoubleTapMonitor.stop()
+            return
+        }
+
         if !modifierDoubleTapMonitor.start() {
             menuLogger.error("Option double-tap monitor did not start")
         }
@@ -281,6 +296,10 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
     }
 
     private func showSlotBindingPopupFromDoubleTap() {
+        guard optionDoubleTapSettingsStore.isEnabled else {
+            return
+        }
+
         menuLogger.info("Option double-tap requested slot binding popup")
         permissionService.refresh()
 
@@ -311,7 +330,8 @@ final class StatusItemController: NSObject, ObservableObject, NSMenuDelegate {
             menuLogger.info("Creating settings window controller")
             settingsWindowController = SettingsWindowController(
                 permissionService: permissionService,
-                hotKeyManager: hotKeyManager
+                hotKeyManager: hotKeyManager,
+                optionDoubleTapSettingsStore: optionDoubleTapSettingsStore
             )
         }
 

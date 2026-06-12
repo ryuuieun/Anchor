@@ -10,7 +10,8 @@ final class SettingsWindowControllerTests: XCTestCase {
             hotKeyManager: HotKeyManager(
                 slotIDs: [1],
                 registrar: SettingsWindowMockHotKeyRegistrar()
-            )
+            ),
+            optionDoubleTapSettingsStore: OptionDoubleTapSettingsStore(userDefaults: makeUserDefaults())
         )
 
         guard let contentBounds = controller.window?.contentView?.bounds else {

@@ -10,6 +10,7 @@ struct AnchorApp: App {
     @StateObject private var permissionService: AccessibilityPermissionService
     @StateObject private var slotStore: WindowSlotStore
     @StateObject private var hotKeyManager: HotKeyManager
+    @StateObject private var optionDoubleTapSettingsStore: OptionDoubleTapSettingsStore
     @StateObject private var statusItemController: StatusItemController
 
     init() {
@@ -26,11 +27,13 @@ struct AnchorApp: App {
             slotIDs: Self.defaultSlotIDs,
             registrar: CarbonHotKeyRegistrar()
         )
+        let optionDoubleTapSettingsStore = OptionDoubleTapSettingsStore()
         let statusItemController = StatusItemController(
             permissionService: permissionService,
             windowService: windowService,
             slotStore: slotStore,
-            hotKeyManager: hotKeyManager
+            hotKeyManager: hotKeyManager,
+            optionDoubleTapSettingsStore: optionDoubleTapSettingsStore
         )
 
         hotKeyManager.start { intent in
@@ -51,6 +54,7 @@ struct AnchorApp: App {
         _permissionService = StateObject(wrappedValue: permissionService)
         _slotStore = StateObject(wrappedValue: slotStore)
         _hotKeyManager = StateObject(wrappedValue: hotKeyManager)
+        _optionDoubleTapSettingsStore = StateObject(wrappedValue: optionDoubleTapSettingsStore)
         _statusItemController = StateObject(wrappedValue: statusItemController)
         appLogger.info("Anchor app initialized")
     }
@@ -59,7 +63,8 @@ struct AnchorApp: App {
         Settings {
             SettingsView(
                 permissionService: permissionService,
-                hotKeyManager: hotKeyManager
+                hotKeyManager: hotKeyManager,
+                optionDoubleTapSettingsStore: optionDoubleTapSettingsStore
             )
         }
         .commands {

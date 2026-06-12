@@ -6,11 +6,13 @@ final class SettingsWindowController: NSWindowController {
 
     init(
         permissionService: AccessibilityPermissionService,
-        hotKeyManager: HotKeyManager
+        hotKeyManager: HotKeyManager,
+        optionDoubleTapSettingsStore: OptionDoubleTapSettingsStore
     ) {
         let rootView = SettingsView(
             permissionService: permissionService,
-            hotKeyManager: hotKeyManager
+            hotKeyManager: hotKeyManager,
+            optionDoubleTapSettingsStore: optionDoubleTapSettingsStore
         )
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(contentViewController: hostingController)
