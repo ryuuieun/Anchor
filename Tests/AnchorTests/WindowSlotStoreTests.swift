@@ -59,6 +59,33 @@ final class WindowSlotStoreTests: XCTestCase {
         XCTAssertTrue(environment.lifecycleObserver.watchedSlots[2] === window)
     }
 
+    func testBindWindowBindsProvidedWindowWithoutCapturingFocusedWindow() {
+        let environment = TestEnvironment(slotIDs: [1])
+        let window = makeWindow(title: "Captured Before Popup")
+
+        environment.store.bindWindow(window, to: 1)
+
+        XCTAssertTrue(environment.store.slot(1).window === window)
+        XCTAssertEqual(environment.store.slot(1).status, .bound)
+        XCTAssertEqual(environment.store.lastMessage, "Bound slot 1 to Test App - Captured Before Popup")
+        XCTAssertEqual(environment.windowService.captureCallCount, 0)
+        XCTAssertTrue(environment.windowService.captureResults.isEmpty)
+        XCTAssertTrue(environment.lifecycleObserver.watchedSlots[1] === window)
+    }
+
+    func testBindWindowToUnknownSlotDoesNotWatchWindow() {
+        let environment = TestEnvironment(slotIDs: [1])
+        let window = makeWindow()
+
+        environment.store.bindWindow(window, to: 9)
+
+        XCTAssertNil(environment.store.slot(1).window)
+        XCTAssertEqual(environment.store.lastMessage, "Unknown slot 9")
+        XCTAssertEqual(environment.windowService.captureCallCount, 0)
+        XCTAssertTrue(environment.windowService.captureResults.isEmpty)
+        XCTAssertTrue(environment.lifecycleObserver.watchedSlots.isEmpty)
+    }
+
     func testLifecycleFallbackMessageIncludesReason() {
         let environment = TestEnvironment(slotIDs: [1])
         let window = makeWindow()
@@ -537,11 +564,13 @@ private final class TestEnvironment {
 
 private final class MockWindowService: WindowServiceProtocol {
     var captureResults: [WindowCaptureResult] = []
+    var captureCallCount = 0
     var validationResults: [ObjectIdentifier: WindowValidationResult] = [:]
     var focusedWindowIDs = Set<ObjectIdentifier>()
     var refreshedWindows: [WindowReference] = []
 
     func captureFocusedWindow() -> WindowCaptureResult {
+        captureCallCount += 1
         guard !captureResults.isEmpty else {
             return .failure("no capture result configured")
         }

@@ -29,38 +29,47 @@ final class WindowSlotStore: ObservableObject {
 
     func bindFocusedWindow(to slotID: Int) {
         slotLogger.info("Bind requested for slot \(slotID)")
-        guard let index = slots.firstIndex(where: { $0.id == slotID }) else {
+        guard slots.contains(where: { $0.id == slotID }) else {
             lastMessage = "Unknown slot \(slotID)"
             return
         }
 
         switch windowService.captureFocusedWindow() {
         case .success(let window):
-            for index in slots.indices {
-                if slots[index].window?.isSameWindow(as: window) == true {
-                    invalidateActivation(for: slots[index].id)
-                    lifecycleObserver.unwatchSlot(slots[index].id)
-                    slots[index].window = nil
-                    slots[index].status = .empty
-                }
-            }
-
-            invalidateActivation(for: slotID)
-            lifecycleObserver.unwatchSlot(slotID)
-            slots[index].window = window
-            slots[index].status = .bound
-            switch lifecycleObserver.watch(window, slotID: slotID) {
-            case .observing:
-                lastMessage = "Bound slot \(slotID) to \(window.summary)"
-            case .appTerminationOnly(let reason):
-                lastMessage = "Bound slot \(slotID) to \(window.summary) (close listener unavailable: \(reason))"
-            }
-            slotLogger.info("Bound slot \(slotID) to \(window.summary, privacy: .public) pid \(window.pid)")
+            bindWindow(window, to: slotID)
 
         case .failure(let reason):
             lastMessage = "Could not bind slot \(slotID): \(reason)"
             slotLogger.error("Bind failed for slot \(slotID): \(reason, privacy: .public)")
         }
+    }
+
+    func bindWindow(_ window: WindowReference, to slotID: Int) {
+        guard let index = slots.firstIndex(where: { $0.id == slotID }) else {
+            lastMessage = "Unknown slot \(slotID)"
+            return
+        }
+
+        for index in slots.indices {
+            if slots[index].window?.isSameWindow(as: window) == true {
+                invalidateActivation(for: slots[index].id)
+                lifecycleObserver.unwatchSlot(slots[index].id)
+                slots[index].window = nil
+                slots[index].status = .empty
+            }
+        }
+
+        invalidateActivation(for: slotID)
+        lifecycleObserver.unwatchSlot(slotID)
+        slots[index].window = window
+        slots[index].status = .bound
+        switch lifecycleObserver.watch(window, slotID: slotID) {
+        case .observing:
+            lastMessage = "Bound slot \(slotID) to \(window.summary)"
+        case .appTerminationOnly(let reason):
+            lastMessage = "Bound slot \(slotID) to \(window.summary) (close listener unavailable: \(reason))"
+        }
+        slotLogger.info("Bound slot \(slotID) to \(window.summary, privacy: .public) pid \(window.pid)")
     }
 
     func activate(slotID: Int) {
