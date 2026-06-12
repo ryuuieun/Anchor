@@ -75,6 +75,46 @@ final class WindowFingerprintMatcherTests: XCTestCase {
         )
     }
 
+    func testStrongIdentityModeRejectsGeometryOnlyMatch() {
+        let original = fingerprint(
+            title: "Codex",
+            position: CGPoint(x: 0, y: 0),
+            size: CGSize(width: 1440, height: 900)
+        )
+        let candidates = [
+            fingerprint(
+                title: "Codex",
+                position: CGPoint(x: 0, y: 0),
+                size: CGSize(width: 1440, height: 900)
+            )
+        ]
+
+        XCTAssertEqual(
+            WindowFingerprintMatcher.match(
+                original: original,
+                candidates: candidates,
+                minimumConfidence: .strongIdentity
+            ),
+            .missing
+        )
+    }
+
+    func testStrongIdentityModeStillMatchesCGWindowID() {
+        let original = fingerprint(cgWindowID: 42)
+        let candidates = [
+            fingerprint(cgWindowID: 42)
+        ]
+
+        XCTAssertEqual(
+            WindowFingerprintMatcher.match(
+                original: original,
+                candidates: candidates,
+                minimumConfidence: .strongIdentity
+            ),
+            .match(0)
+        )
+    }
+
     func testTitleOnlyMatchIsAmbiguous() {
         let original = fingerprint(title: "Untitled")
         let candidates = [

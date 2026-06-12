@@ -7,10 +7,16 @@ enum WindowFingerprintMatchResult: Equatable {
     case ambiguous(String)
 }
 
+enum WindowFingerprintMatchConfidence {
+    case strongIdentity
+    case titleAndGeometry
+}
+
 struct WindowFingerprintMatcher {
     static func match(
         original: WindowFingerprint,
-        candidates: [WindowFingerprint]
+        candidates: [WindowFingerprint],
+        minimumConfidence: WindowFingerprintMatchConfidence = .titleAndGeometry
     ) -> WindowFingerprintMatchResult {
         let compatibleCandidates = candidates.enumerated().filter { _, candidate in
             attributesCompatible(candidate, with: original)
@@ -38,6 +44,10 @@ struct WindowFingerprintMatcher {
             if cgWindowMatches.count > 1 {
                 return .ambiguous("window identity ambiguous")
             }
+        }
+
+        guard minimumConfidence == .titleAndGeometry else {
+            return .missing
         }
 
         let geometryCandidates = compatibleCandidates.filter { _, candidate in

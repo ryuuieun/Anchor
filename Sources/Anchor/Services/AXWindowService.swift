@@ -490,7 +490,11 @@ final class AXWindowService: WindowServiceProtocol {
             return false
         }
 
-        switch WindowFingerprintMatcher.match(original: window.fingerprint, candidates: [candidate.fingerprint]) {
+        switch WindowFingerprintMatcher.match(
+            original: window.fingerprint,
+            candidates: [candidate.fingerprint],
+            minimumConfidence: .strongIdentity
+        ) {
         case .match:
             return true
         case .missing, .ambiguous:
