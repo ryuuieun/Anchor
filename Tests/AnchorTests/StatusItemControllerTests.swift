@@ -4,7 +4,7 @@ import XCTest
 
 final class StatusItemControllerTests: XCTestCase {
     @MainActor
-    func testMenuOpenStatusRefreshRebuildsCurrentMenuAfterClosedWindowCleanup() {
+    func testMenuOpenStatusRefreshDefersVisibleMenuRebuildUntilClose() {
         let windowService = StatusMenuMockWindowService()
         let focusService = StatusMenuMockWindowFocusService()
         let lifecycleObserver = StatusMenuMockWindowLifecycleObserver()
@@ -44,10 +44,14 @@ final class StatusItemControllerTests: XCTestCase {
 
         wait(for: [refreshApplied], timeout: 1)
 
-        XCTAssertFalse(controller.menuTitlesForTesting.contains { $0.contains("Slot 1:") })
+        XCTAssertTrue(controller.menuTitlesForTesting.contains { $0.contains("Slot 1:") })
         XCTAssertEqual(slotStore.slots.first?.status, .empty)
         XCTAssertNil(slotStore.slots.first?.window)
         XCTAssertFalse(windowService.didValidateOnMainThread)
+
+        controller.menuDidClose(controller.menuForTesting)
+
+        XCTAssertFalse(controller.menuTitlesForTesting.contains { $0.contains("Slot 1:") })
     }
 }
 
